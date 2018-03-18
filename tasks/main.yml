@@ -1,0 +1,656 @@
+---
+#============Enable Additional Repositories and Install Some Software===============
+
+- name: Importer le GPG key Centos7
+  rpm_key: 
+    state=present 
+    key=/etc/pki/rpm-gpg/RPM-GPG-KEY-CentOS-7
+  tags: before_reboot
+
+- name: Importer le GPG key Debug
+  rpm_key:
+    state=present
+    key=/etc/pki/rpm-gpg/RPM-GPG-KEY-CentOS-Debug-7
+  tags: before_reboot
+
+- name: Importer le GPG key Testing  
+  rpm_key:
+    state=present
+    key=/etc/pki/rpm-gpg/RPM-GPG-KEY-CentOS-Testing-7
+  tags: before_reboot
+
+
+- name: Installer les paquets nécessaires au déploiement
+  yum: name={{ item }} state=present
+  with_items:
+  - wget
+  - epel-release
+  - yum-priorities
+  tags: before_reboot
+
+- name: Importer le GPG key EPEL
+  rpm_key:
+    state=present
+    key=/etc/pki/rpm-gpg/RPM-GPG-KEY-EPEL-7
+  tags: before_reboot
+
+- name: Configurer la priorité dans le epel repository
+  template:
+    src: epel.repo.j2
+    dest: /etc/yum.repos.d/epel.repo
+    owner: root
+    mode: 0644
+  tags: before_reboot
+
+- name: update all packages
+  yum: name=* state=latest
+  tags: update1
+
+- name: install the 'Development tools' package group
+  yum: name="@Development tools" state=present
+  tags: before_reboot
+
+#================Quota==============================
+
+- name: install the quota package
+  yum: name=quota state=present
+  tags: before_reboot
+
+- name: Editer fichier de configuration du grub
+  template:
+    src=grub.j2
+    dest=/etc/default/grub
+    owner=root
+    mode=0644  
+  tags: before_reboot
+
+- name: Appliquer les changements en copiant des fichiers
+  shell: cp /boot/grub2/grub.cfg /boot/grub2/grub.cfg_bak
+  tags: before_reboot
+
+- name: Configurer le grub  
+  command: grub2-mkconfig -o /boot/grub2/grub.cfg
+  tags: before_reboot
+
+- name: install the firewalld package
+  yum: name=firewalld state=present
+  tags: before_reboot
+
+- name: Start and Enable Firewalld
+  service:
+    name=firewalld
+    enabled=yes
+    state=started
+  tags: before_reboot
+
+- name: Autoriser le port qu'utilise le service ssh
+  shell: firewall-cmd --add-port=22/tcp --permanent
+  tags: before_reboot
+
+- name: reload firewall
+  shell: firewall-cmd --reload
+  tags: before_reboot
+
+#- name: Reboot machine
+#  shell: sleep 1 && shutdown -r now
+#  async: 0
+#  poll: 0
+#  ignore_errors: true
+#  tags: before_reboot
+
+#- name: Attente du redémarrage machine
+#  local_action: wait_for host={{ inventory_hostname }} state=started port=22 delay=20 timeout=200 connect_timeout=15
+#  tags: before_reboot   
+#==================Install Apache, Mysql, phpmyadmin===================
+
+- name: Desactiver SELINUX
+  selinux:
+    state: disabled
+  tags: lamp
+
+- name: Installer LAMP packages
+  yum:
+    pkg: "{{ item }}"
+    state: installed
+  with_items: "{{ lamp_packages }}"
+  tags: lamp
+
+- name: Enable httpd
+  service:
+    name=httpd
+    enabled=yes
+    state=started
+  tags: lamp
+
+- name: Ajout de Apache header rule
+  command: echo "RequestHeader unset Proxy early" >> /etc/httpd/conf/httpd.conf
+  notify: restart httpd
+  tags: lamp
+
+- name: Autoriser le port qu'utilise le service apache
+  shell: firewall-cmd --add-port=80/tcp --permanent
+  tags: lamp
+
+- name: Autoriser le port qu'utilise le service mysql
+  shell: firewall-cmd --add-port=3306/tcp --permanent
+  tags: lamp
+
+- name: reload firewall
+  shell: firewall-cmd --reload
+  tags: lamp
+
+#===================Install Dovecot============================
+
+- name: Installer dovecot
+  yum:
+    pkg: "{{ item }}"
+    state: installed
+  with_items: "{{ dovecot_packages }}"
+  tags: dovecot
+
+- name: Créer fichier sql
+  file: 
+    path=/etc/dovecot/dovecot-sql.conf 
+    state=touch
+  tags: dovecot
+
+- name: Lien symbolique fichier sql dovecot
+  file:
+    src=/etc/dovecot/dovecot-sql.conf
+    dest=/etc/dovecot-sql.conf
+    state=link
+  tags: dovecot
+
+- name: Start and Enable Dovecot
+  service:
+    name=dovecot
+    enabled=yes
+    state=started
+  tags: dovecot
+
+- name: Autoriser le port 110 dovecot
+  shell: firewall-cmd --add-port=110/tcp --permanent
+  tags: dovecot
+
+- name: Autoriser le port 143 dovecot
+  shell: firewall-cmd --add-port=143/tcp --permanent
+  tags: dovecot
+    
+- name: Autoriser le port 993 dovecot
+  shell: firewall-cmd --add-port=993/tcp --permanent
+  tags: dovecot
+
+- name: Autoriser le port 995 dovecot
+  shell: firewall-cmd --add-port=995/tcp --permanent
+  tags: dovecot
+
+- name: reload firewall
+  shell: firewall-cmd --reload
+  tags: dovecot
+
+#===============Install postfix=================
+
+- name: Installer postfix
+  yum: name=postfix state=present
+  tags: postfix
+
+- name: Start and Enable Mariadb
+  service:
+    name=mariadb
+    enabled=yes
+    state=started
+  tags: postfix
+   
+#- name: Stop and disable sendmail
+#  service:
+#    name=sendmail
+#    enabled=no
+#    state=stopped
+
+- name: Start and Enable Postfix
+  service:
+    name=postfix
+    enabled=yes
+    state=started
+  tags: postfix
+
+- name: Autoriser le port qu'utilise le service postfix
+  shell: firewall-cmd --add-port=25/tcp --permanent
+  tags: postfix
+
+- name: reload firewall
+  shell: firewall-cmd --reload
+  tags: postfix
+
+#===================Install Getmail============================
+
+- name: Installer getmail
+  yum: name=getmail state=present
+  tags: postfix
+
+#==================Set Mysql Password and Configure PHPmyadmin==============
+
+- name: Install config file for network settings
+  template:
+    src: etc_my.cnf.d_network.cnf.j2
+    dest: /etc/my.cnf.d/network.cnf
+  notify: restart mariadb
+  tags: mariadb
+
+- name: Update root password
+  mysql_user:
+    name: root
+    host: "{{ item }}"
+    password: "{{ mariadb_root_password }}"
+    state: present
+  with_items:
+    - 127.0.0.1
+    - "{{ ansible_eth0.ipv4.address }}"
+    - "{{ ansible_hostname }}"
+    - "{{ ansible_fqdn }}"
+    - ::1
+    - localhost
+  tags: mariadb
+
+- name: Install ~/.my.cnf
+  template:
+    src: home_my.cnf.j2
+    dest: ~/.my.cnf
+    mode: '0600'
+  tags: mariadb
+
+
+- name: Remove the test database
+  mysql_db:
+    name: test
+    state: absent
+  tags: mariadb
+
+- name: Remove anonymous users
+  mysql_user:
+    name: ''
+    host: "{{ item }}"
+    state: absent
+  with_items:
+    - localhost
+  tags: mariadb
+
+- name: Config de phpMyAdmin
+  template:
+    src=phpMyAdmin_conf.j2
+    dest=/etc/httpd/conf.d/phpMyAdmin.conf
+    owner=root
+    mode=0644
+  notify: restart httpd
+  tags: mariadb
+
+#==================Install Amavisd-new, SpamAssassin, and ClamAv==============
+
+
+- name: Installer paquets Anti-spam
+  yum:
+    pkg: "{{ item }}"
+    state: installed
+  with_items: "{{ antispam_packages }}"
+  tags: antispam
+
+- name: Edit the freshclam configuration file /etc/freshclam.conf
+  lineinfile: dest=/etc/freshclam.conf 
+              line='Example'
+              state=absent
+  tags: antispam
+
+- name: Config de amavisd.conf
+  template:
+    src=amavisd.conf.j2
+    dest=/etc/amavisd/amavisd.conf
+    owner=root
+    group=amavis
+    mode=0644
+  tags: antispam
+
+
+- name: Start fresclam sa-update
+  shell: sa-update
+  register: foo
+  failed_when: foo.rc >= 4
+  tags: antispam
+
+- name: Start fresclam freshclam
+  command: freshclam
+  tags: antispam
+
+- name: Start and Enable amavisd
+  service:
+    name=amavisd
+    enabled=yes
+    state=started
+  tags: antispam
+
+- name: Start and Enable clamd
+  service:
+    name=clamd@amavisd
+    enabled=yes
+    state=started
+  tags: antispam
+
+- name: Autoriser le port qu'utilise clamav 
+  shell: firewall-cmd --add-port=10024/tcp --permanent
+  tags: antispam
+
+- name: Autoriser le port qu'utilise amavisd
+  shell: firewall-cmd --add-port=3310/tcp --permanent
+  tags: antispam
+
+- name: reload firewall
+  shell: firewall-cmd --reload
+  tags: antispam
+
+#==============Apache mod_php, mod_fcgi/PHP5, PHP-FPM===================
+
+
+- name: Installer paquets mod Apache
+  yum:
+    pkg: "{{ item }}"
+    state: installed
+  with_items: "{{ apachemod_packages }}"
+  tags: php
+
+- name: add timezone to php.ini
+  lineinfile: 
+    dest=/etc/php.ini 
+    state=present 
+    regexp='[;]?date.timezone' 
+    line='date.timezone=\"{{ php_time_zone }}\"'
+  tags: php
+
+- name: Start and Enable php-fpm
+  service:
+    name=php-fpm
+    enabled=yes
+    state=started
+  tags: php
+
+#===================Certbot-auto====================
+
+#==================Installation Mod_python======================
+
+- name: Installer python development
+  yum: name=python-devel state=present
+  tags: mod_python
+
+- name: Récupérer module python depuis les sources
+  get_url:
+    url=http://dist.modpython.org/dist/mod_python-3.5.0.tgz
+    dest=/usr/local/src/
+  tags: mod_python
+
+- name: Extraire l'archive modpython
+  command: tar -zxf mod_python-3.5.0.tgz
+    chdir=/usr/local/src/
+  tags: mod_python
+
+- name: Configure and compile module python
+  command: ./configure
+    chdir=/usr/local/src/mod_python-3.5.0
+  tags: mod_python
+  
+- name : Compile Module
+  make:
+    chdir=/usr/local/src/mod_python-3.5.0
+  tags: mod_python
+
+- name: Configure and compile module python
+  command: make install 
+    chdir=/usr/local/src/mod_python-3.5.0 
+  tags: mod_python
+
+- name: Activer le module python dans apache
+  shell: echo 'LoadModule python_module modules/mod_python.so' > /etc/httpd/conf.modules.d/10-python.conf
+  notify: restart httpd
+  tags: mod_python
+
+#========================Install PureFTPd=============================
+
+- name: Install PureFTPd and openssl
+  yum: name={{ item }} state=present
+  with_items:
+    - pure-ftpd
+    - openssl
+  tags: pureftpd
+
+- name: Start and Enable pure-ftpd
+  service:
+    name=pure-ftpd
+    enabled=yes
+    state=started
+  tags: pureftpd
+
+- name: Autoriser le port qu'utilise le service pureftpd
+  shell: firewall-cmd --add-port=21/tcp --permanent
+  tags: pureftpd
+
+- name: reload firewall
+  shell: firewall-cmd --reload
+  tags: pureftpd
+
+- name: Config de pure-ftpd.conf
+  template:
+    src=pure_ftpd_conf.j2
+    dest=/etc/pure-ftpd/pure-ftpd.conf
+    owner=root
+    mode=0644
+  tags: pureftpd
+
+- name: Create directory for ssl certificate
+  file:
+    path=/etc/ssl/private/
+    state=directory
+  tags: pureftpd
+
+- name: Certificat SSL
+  template:
+    src=cert_ssl.j2
+    dest=/etc/ssl/private/pure-ftpd.pem
+    owner=root
+    mode=0600
+  notify: restart pure-ftpd
+  tags: pureftpd
+
+#======================Install BIND==============================
+
+- name: Install Bind packages
+  yum:
+    pkg: "{{ item }}"
+    state: installed
+  with_items: "{{ bind_packages }}"
+  tags: bind
+
+- name: Autoriser le port qu'utilise le service bind
+  shell: firewall-cmd --add-port=53/tcp --permanent
+  tags: bind
+
+- name: reload firewall
+  shell: firewall-cmd --reload
+  tags: bind
+
+- name: Faire un backup de /etc/named.conf
+  command: cp /etc/named.conf /etc/named.conf.bak
+  tags: bind
+
+- name: Créer fichier named.conf.local
+  file:
+    path=/etc/named.conf.local
+    state=touch
+  tags: bind
+
+
+- name: Start and Enable Service Named
+  service:
+    name=named
+    enabled=yes
+    state=started
+  tags: bind
+
+#=================Install Webalizer, and AWStats====================
+
+- name: Install AWStats and Webalizer packages
+  yum:
+    pkg: "{{ item }}"
+    state: installed
+  with_items: "{{ awstatswebalizer_packages }}"
+  tags: awstatweb
+
+- name: Download webalizer depuis les source
+  command: wget ftp://ftp.mrunix.net/pub/webalizer/webalizer-2.23-08-src.tgz
+    chdir=/tmp
+  tags: awstatweb
+
+- name: Extraire l'archive
+  command: tar -zxf webalizer-2.23-08-src.tgz
+    chdir=/tmp
+  tags: awstatweb
+
+- name: Configure and compile webalizer
+  command: ./configure
+    chdir=/tmp/webalizer-2.23-08
+  tags: awstatweb
+
+- name : Compile WebAlizer
+  make:
+    chdir=/tmp/webalizer-2.23-08
+  tags: awstatweb
+
+- name: Make install webalizer
+  command: make install
+    chdir=/tmp/webalizer-2.23-08
+  tags: awstatweb  
+
+
+#===================Install Jailkit============================
+
+
+- name: Récupérer Jailkit depuis les source
+  get_url:
+    url=http://olivier.sessink.nl/jailkit/jailkit-2.19.tar.gz
+    dest=/tmp
+  tags: jailkit
+
+- name: Extraire l'archive jailkit
+  command: tar -zxf jailkit-2.19.tar.gz
+    chdir=/tmp
+  tags: jailkit
+
+- name: Configure and compile Jailkit
+  command: ./configure
+    chdir=/tmp/jailkit-2.19
+  tags: jailkit
+
+- name : Compile Jailkit
+  make:
+    chdir=/tmp/jailkit-2.19
+  tags: jailkit
+
+- name: Make install Jailkit
+  command: make install
+    chdir=/tmp/jailkit-2.19
+  tags: jailkit
+
+#=================Install fail2ban==================
+
+- name: Install fail2ban
+  yum: name={{ item }} state=present
+  with_items:
+    - fail2ban
+    - fail2ban-systemd
+  tags: fail2ban
+
+- name: Start and Enable fail2ban
+  service:
+    name=fail2ban
+    enabled=yes
+    state=started
+  tags: fail2ban
+
+#===============Install rkhunter======================
+
+- name: Installer rkhunter
+  yum: name=rkhunter state=present
+  tags: rkhunter
+
+#==============Install Mailman=========================
+
+
+#==================Install Roundcube webmail=========================
+
+
+- name: Installer roundcubemail
+  yum: name=roundcubemail state=present
+  tags: roundcube3
+
+- name: Configurer fichier apache roundcube
+  template:
+    src=roundcubemail_conf.j2
+    dest=/etc/httpd/conf.d/roundcubemail.conf
+    owner=root
+    mode=0644
+  notify: restart httpd
+  tags: roundcube3
+
+- name: Créer la base de donnée roundcube
+  mysql_db:
+    name: "{{ item }}"
+    state: present
+  with_items: "{{ mariadb_roundcube }}"
+  tags: roundcube3
+#  when: inventory_hostname == master_node
+
+- name: Créer les users
+  mysql_user:
+    name: "{{ item.name }}"
+    host: "{{ item.host }}"
+    password: "{{ item.password }}"
+    priv: "{{ item.priv }}"
+    state: present
+  with_items: "{{ mariadb_roundcube_users }}"
+  tags: roundcube3
+
+- name: Install Roundcube config
+  template:
+    src=config.inc.php.j2
+    dest={{ roundcube_conf_dir }}/config.inc.php
+    owner=root 
+    mode=0640
+  tags: roundcube3
+
+- name: Config to disable the Roundcubemail Installer
+  template:
+    src=config_post_install.j2
+    dest=/etc/httpd/conf.d/roundcubemail.conf
+    owner=root
+    mode=0644
+  notify: restart httpd
+  tags: roundcube3
+
+
+
+#===================Install ISPConfig 3.1=====================
+
+
+- name: Autoriser le port qu'utilise Ispconfig
+  shell: firewall-cmd --add-port=8080/tcp --permanent
+  tags: isp
+
+- name: reload firewall
+  shell: firewall-cmd --reload
+  tags: isp
+
+- name: Télécharger Ispconfig depuis les source
+  command: wget -O ispconfig.tar.gz https://git.ispconfig.org/ispconfig/ispconfig3/repository/archive.tar.gz?ref=stable-3.1
+    chdir=/usr/local/src
+  tags: isp
+
+- name: Extraire l'archive ispconfig
+  command: tar -zxf ispconfig.tar.gz
+    chdir=/usr/local/src
+  tags: isp

@@ -1,0 +1,19 @@
+---
+# defaults file for ansible-ispconfig-centos7
+etc_hosts_static_ip: true  #defines if node has static IP.
+etc_hosts_add_all_hosts: true  #defines if all nodes in play should be added to each hosts /etc/hosts
+priv_domain: sanogo.net
+php_time_zone: 'Africa/Abidjan'
+python_dir: /usr/local/src/mod_python-3.5.0
+webalizer_dir: /tmp/webalizer-2.23-08
+jailkit_dir: /tmp/jailkit-2.19
+roundcube_conf_dir: /etc/roundcubemail
+roundcube_db_username: roundcube
+roundcubepassword: "{{ mariadb_root_password }}"
+roundcube_db_host: localhost
+roundcube_db_database: "{{ mariadb_roundcube }}"
+mariadb_bind_address: 127.0.0.1
+mariadb_roundcube: roundcubedb
+mariadb_root_password: NjBjNTQ4NmIwYTc5ODM0
+des_key: FHgaM7ihtMkM1cBwckOcxPdT
+#master_node: 

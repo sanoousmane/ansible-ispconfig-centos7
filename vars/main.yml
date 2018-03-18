@@ -1,0 +1,68 @@
+---
+# vars file for ansible-ispconfig-centos7
+
+pri_domain_name: sanogo.net
+
+lamp_packages:
+  - ntp
+  - httpd
+  - mod_ssl
+  - mariadb-server
+  - MySQL-python
+  - php
+  - php-mysql
+  - php-mbstring
+  - phpmyadmin
+
+dovecot_packages:
+  - dovecot
+  - dovecot-mysql
+  - dovecot-pigeonhole
+
+antispam_packages:
+  - amavisd-new
+  - spamassassin
+  - clamav-server
+  - clamav-data
+  - clamav-update
+  - clamav-filesystem
+  - clamav
+  - clamav-scanner-systemd
+  - clamav-devel
+  - clamav-lib
+  - clamav-server-systemd
+  - unzip
+  - bzip2
+  - perl-DBD-mysql
+
+apachemod_packages:
+  - php-devel 
+  - php-imap 
+  - php-ldap 
+  - php-odbc 
+  - php-pear 
+  - php-xmlrpc 
+  - php-pecl-apc 
+  - php-mcrypt 
+  - php-mssql 
+  - php-snmp 
+  - php-soap 
+  - curl-devel 
+  - ImageMagick 
+  - libxml2-devel 
+  - mod_fcgid 
+  - httpd-devel 
+  - php-fpm
+
+
+bind_packages:
+  - bind
+  - bind-utils
+  - haveged
+
+awstatswebalizer_packages:
+  - awstats 
+  - perl-DateTime-Format-HTTP
+  - perl-DateTime-Format-Builder
+  - libpng-devel 
+  - gd-devel

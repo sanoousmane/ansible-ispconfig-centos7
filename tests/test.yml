@@ -1,0 +1,16 @@
+---
+- hosts: ispconfig
+  remote_user: root
+  vars:
+    mariadb_roundcube: roundcubedb
+    mariadb_root_password: NjBjNTQ4NmIwYTc5ODM0
+    mariadb_bind_address: '127.0.0.1'
+    mariadb_roundcube_users:
+      - name: roundcube
+        host:
+         - 127.0.0.1
+         - localhost
+        password: NjBjNTQ4NmIwYTc5ODM0
+        priv: "roundcube.*:ALL,GRANT"
+  roles:
+    - ansible-ispconfig-centos7
