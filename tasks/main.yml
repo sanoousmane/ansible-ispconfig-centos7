@@ -586,7 +586,7 @@
 
 - name: Installer roundcubemail
   yum: name=roundcubemail state=present
-  tags: roundcube3
+  tags: roundcube
 
 - name: Configurer fichier apache roundcube
   template:
@@ -595,14 +595,14 @@
     owner=root
     mode=0644
   notify: restart httpd
-  tags: roundcube3
+  tags: roundcube
 
 - name: Créer la base de donnée roundcube
   mysql_db:
     name: "{{ item }}"
     state: present
   with_items: "{{ mariadb_roundcube }}"
-  tags: roundcube3
+  tags: roundcube
 #  when: inventory_hostname == master_node
 
 - name: Créer les users
@@ -613,7 +613,7 @@
     priv: "{{ item.priv }}"
     state: present
   with_items: "{{ mariadb_roundcube_users }}"
-  tags: roundcube3
+  tags: roundcube
 
 - name: Install Roundcube config
   template:
@@ -621,7 +621,7 @@
     dest={{ roundcube_conf_dir }}/config.inc.php
     owner=root 
     mode=0640
-  tags: roundcube3
+  tags: roundcube
 
 - name: Config to disable the Roundcubemail Installer
   template:
@@ -630,7 +630,7 @@
     owner=root
     mode=0644
   notify: restart httpd
-  tags: roundcube3
+  tags: roundcube
 
 
 

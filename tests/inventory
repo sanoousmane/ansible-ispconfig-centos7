@@ -1,2 +1,2 @@
 [ispconfig]
-217.182.94.95	ansible_ssh_user="root"
+192.168.122.100	ansible_ssh_user="root"
